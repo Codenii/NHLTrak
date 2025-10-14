@@ -10,6 +10,7 @@ from nhlpy import NHLClient
 
 from routers.teams_routes import teams_router
 from routers.players_routes import players_router
+from routers.stats_routes import stats_router
 
 from config import DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME
 
@@ -97,3 +98,4 @@ app = FastAPI(lifespan=lifespan)
 
 app.include_router(teams_router, tags=["teams"], prefix="/teams")
 app.include_router(players_router, tags=["players"], prefix="/players")
+app.include_router(stats_router, tags=["stats"], prefix="/stats")

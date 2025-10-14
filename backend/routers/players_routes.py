@@ -1,6 +1,5 @@
 from icecream import ic
-from datetime import datetime, timedelta
-from dateutil import parser
+from datetime import datetime
 
 from fastapi import APIRouter, Body, Request, Response, HTTPException, status
 from fastapi.encoders import jsonable_encoder
@@ -9,11 +8,20 @@ from nhlpy import NHLClient
 
 from db_connection import init_db, db
 from config import DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME
+from helpers import get_players_by_team
 
 
 nhl_client = NHLClient()
 
 db = init_db(DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME)
+
+
+current_season = datetime.now().year
+
+if datetime.now().month >= 1 and datetime.now().month <= 4:
+    current_season = str(current_season) + str(current_season - 1)
+else:
+    current_season = str(current_season) + str(current_season + 1)
 
 
 players_router = APIRouter()
@@ -40,7 +48,9 @@ columns = [
 
 @players_router.get("/all_players_current_season")
 async def get_all_players_current_season():
-    return {"message": "All players endpoint"}
+    return {
+        "message": f"All players endpoint. {current_season} - {datetime.now().month}"
+    }
 
 
 @players_router.get("/all_players_past_seasons")
@@ -49,86 +59,49 @@ async def get_all_players_past_seasons(season: str):
 
 
 @players_router.get("/players_by_team_id/{id}")
-async def get_players_by_team_id(id: int, season: str = "20252026"):
+async def get_players_by_team_id(id: int, season: str = current_season):
+    """
+    Gets basic information about all players on a given team.
+
+    Parameters:
+    id (int): The ID of the team to retrieve list of players for.
+    season (str): The season for which to retrieve the roster for.
+                  Defaults to the current season.
+
+    Returns:
+    list: List of players on the given team and thier basic informanion in json format.
+    """
     player_sql_query = f"SELECT players.birth_city, players.birth_country, players.birth_date, players.birth_province_state, players.first_name, players.last_name, players.headshot, players.height_in_centimeters, players.height_in_inches, players.position, players.shoots_catches, players.sweater_number, players.weight_in_kilograms, players.weight_in_pounds, players.last_updated, teams.name FROM players INNER JOIN teams ON players.current_team = teams.id WHERE players.current_team = {id};"
 
     team_sql_query = (
         f"SELECT teams.id, teams.abbr, teams.name FROM teams WHERE teams.id = {id}"
     )
 
+    player_data = get_players_by_team(team_sql_query, player_sql_query, season)
+
+    return player_data
+
+
+@players_router.get("/players_by_team_name/{name}")
+async def get_players_by_team_name(name: str, season: str = current_season):
+    """
+    Gets basic information about all players on a given team.
+
+    Parameters:
+    name (str): The name, common name, or abbreviation of the team to retrieve list of players for.
+    season (str): The season for which to retrieve the roster for.
+                  Defaults to the current season.
+
+    Returns:
+    list: List of players on the given team and thier basic information in json format.
+    """
+    team_sql_query = f"SELECT teams.id, teams.abbr, teams.name FROM teams WHERE teams.name = '{name.title()}' OR teams.common_name = '{name.title()}' OR teams.abbr = '{name.upper()}';"
     team = db.execute_query(team_sql_query)
     team = team.fetchall()
-    team_columns = ["id", "abbr", "name"]
-    team_data = [dict(zip(team_columns, row)) for row in team]
-    team_data = jsonable_encoder(team_data)
+    team = team[0]
 
-    players = db.execute_query(player_sql_query)
-    players = players.fetchall()
+    player_sql_query = f"SELECT players.birth_city, players.birth_country, players.birth_date, players.birth_province_state, players.first_name, players.last_name, players.headshot, players.height_in_centimeters, players.height_in_inches, players.position, players.shoots_catches, players.sweater_number, players.weight_in_kilograms, players.weight_in_pounds, players.last_updated, teams.name FROM players INNER JOIN teams ON players.current_team = teams.id WHERE players.current_team = {team[0]};"
 
-    player_data = [dict(zip(columns, row)) for row in players]
-    player_data = jsonable_encoder(player_data)
-
-    need_to_update = datetime.now() - timedelta(hours=0.5)
-
-    last_updated_time = parser.parse(player_data[0]["last_updated"])
-
-    if len(player_data) == 0 or need_to_update >= last_updated_time:
-        all_players = []
-        players_from_api = nhl_client.players.players_by_team(
-            team_data[0]["abbr"], season
-        )
-        ic(players_from_api)
-        for position in players_from_api:
-            for player in players_from_api[position]:
-                player_id = player["id"]
-                birth_city = player["birthCity"]["default"]
-                birth_country = player["birthCountry"]
-                birth_date = player["birthDate"]
-                try:
-                    birth_province_state = player["birthStateProvince"]["default"]
-                except KeyError as e:
-                    birth_province_state = None
-                first_name = player["firstName"]["default"]
-                last_name = player["lastName"]["default"]
-                headshot = player["headshot"]
-                height_in_centimeters = player["heightInCentimeters"]
-                height_in_inches = player["heightInInches"]
-                position = player["positionCode"]
-                shoots_catches = player["shootsCatches"]
-                sweater_number = player["sweaterNumber"]
-                weight_in_kilograms = player["weightInKilograms"]
-                weight_in_pounds = player["weightInPounds"]
-                current_team = team_data[0]["id"]
-                last_updated = datetime.now()
-
-                if len(player_data) == 0:
-                    insert_query = f"INSERT INTO players (id, birth_city, birth_country, birth_date, birth_province_state, first_name, last_name, headshot, height_in_centimeters, height_in_inches, position, shoots_catches, sweater_number, weight_in_kilograms, weight_in_pounds, current_team, last_updated) VALUES ({player_id}, '{birth_city}', '{birth_country}', '{birth_date}', '{birth_province_state}', '{first_name}', '{last_name}', '{headshot}', {height_in_centimeters}, {height_in_inches}, '{position}', '{shoots_catches}', {sweater_number}, {weight_in_kilograms}, {weight_in_pounds}, {current_team}, '{last_updated}');"
-                elif need_to_update >= last_updated_time:
-                    insert_query = f""
-                else:
-                    return {
-                        "Error": "A critical error has occured. Please contact the system admin."
-                    }
-                db.execute_query(insert_query)
-                all_players.append(
-                    {
-                        "birth_city": birth_city,
-                        "birth_country": birth_country,
-                        "birth_date": birth_date,
-                        "birth_province_state": birth_province_state,
-                        "first_name": first_name,
-                        "last_name": last_name,
-                        "headshot": headshot,
-                        "height_in_centimeters": height_in_centimeters,
-                        "height_in_inches": height_in_inches,
-                        "position": position,
-                        "shoots_catches": shoots_catches,
-                        "sweater_number": sweater_number,
-                        "weight_in_kilograms": weight_in_kilograms,
-                        "weight_in_pounds": weight_in_pounds,
-                        "current_team": team_data[0]["name"],
-                    }
-                )
-        player_data = jsonable_encoder(all_players)
+    player_data = get_players_by_team(team_sql_query, player_sql_query, season)
 
     return player_data
