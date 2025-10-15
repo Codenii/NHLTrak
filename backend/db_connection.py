@@ -32,6 +32,9 @@ class DatabaseConnection:
     def get_connection_string(self):
         """
         Generates connection string for PostgreSQL.
+
+        Returns:
+            PostgeSQL connection string.
         """
         if self.password:
             return f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
