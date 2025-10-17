@@ -3,6 +3,8 @@ from pony.orm import Database, db_session, select, commit, rollback
 from contextlib import contextmanager
 from dotenv import dotenv_values
 
+from icecream import ic
+
 config = dotenv_values(".env")
 DB_USER = config["DB_USER"]
 DB_PASSWORD = config["DB_PASSWORD"]
@@ -13,7 +15,7 @@ DB_NAME = config["DB_NAME"]
 
 class DatabaseConnection:
     def __init__(self, user=None, password=None, host=None, port=None, database=None):
-        self.user = user or DB_NAME or os.environ.get("DB_USER", "")
+        self.user = user or DB_USER or os.environ.get("DB_USER", "")
         self.password = password or DB_PASSWORD or os.environ.get("DB_PASSWORD", "")
         self.host = host or DB_HOST or os.environ.get("DB_HOST", "localhost")
         self.port = port or DB_PORT or os.environ.get("DB_PORT", "5432")
@@ -27,7 +29,7 @@ class DatabaseConnection:
             self.db.bind(
                 provider="postgres",
                 user=self.user,
-                password=self.user,
+                password=self.password,
                 host=self.host,
                 port=self.port,
                 database=self.database,
@@ -67,17 +69,22 @@ class DatabaseConnection:
         print("All tables dropped.")
 
     @db_session
-    def get_all(self, entity, **filters):
-        if filters:
-            return list(
-                select(
-                    e
-                    for e in entity
-                    if all(getattr(e, k) == v for k, v in filters.items())
-                )
-            )
+    def get_all(self, entity, filters=None, **kwargs):
+        all_filters = {}
 
-        return list(select(e for e in entity)[:])
+        if filters:
+            all_filters.update(filters)
+
+        all_filters.update(kwargs)
+
+        if all_filters:
+            query = entity.select()
+            for key, value in all_filters.items():
+                query = query.filter(lambda e: getattr(e, key) == value)
+
+            return list(query)
+
+        return list(entity.select())
 
     @db_session
     def get_by_id(self, entity, id_value):
