@@ -9,9 +9,8 @@ from fastapi import FastAPI
 
 from nhlpy import NHLClient
 
-from routers.teams_routes import teams_router
-from routers.players_routes import players_router
-from routers.stats_routes import stats_router
+from pony_routers.team_routes import team_router
+from pony_routers.player_routes import player_router
 
 nhl_client = NHLClient()
 
@@ -29,27 +28,46 @@ async def lifespan(app: FastAPI):
     db_conf = db.get_all(Conference)
     db_div = db.get_all(Division)
 
-    ic(
-        f"Teams: {len(db_teams)} | Conferences: {len(db_conf)} | Divisions: {len(db_div)}"
-    )
-    teams = nhl_client.teams.teams()
+    if len(db_teams) < 32:
+        teams = nhl_client.teams.teams()
 
-    for team in teams:
-        all_teams.append(team)
+        for team in teams:
+            if team["conference"] not in all_conferences:
+                all_conferences.append(team["conference"])
 
-        if team["conference"] not in all_conferences:
-            all_conferences.append(team["conference"])
+            if team["division"] not in all_divisions:
+                all_divisions.append(team["division"])
 
-        if team["division"] not in all_divisions:
-            all_divisions.append(team["division"])
+        if len(db_conf) < 2:
+            for conference in all_conferences:
+                db.insert_one(
+                    Conference, abbr=conference["abbr"], name=conference["name"]
+                )
 
-    for conference in all_conferences:
-        db.insert_one(Conference, abbr=conference["abbr"], name=conference["name"])
+        if len(db_div) < 4:
+            for division in all_divisions:
+                db.insert_one(Division, abbr=division["abbr"], name=division["name"])
 
-    for division in all_divisions:
-        db.insert_one(Division, abbr=division["abbr"], name=division["name"])
+        for team in teams:
+            conf = db.get_one(Conference, name=team["conference"]["name"])
+            div = db.get_one(Division, name=team["division"]["name"])
+            team_data = {
+                "id": team["franchise_id"],
+                "abbr": team["abbr"],
+                "common_name": team["common_name"],
+                "name": team["name"],
+                "conference": conf.id,
+                "division": div.id,
+                "logo": team["logo"],
+            }
+            all_teams.append(team_data)
+
+        teams_inserted = db.insert_many(Team, all_teams)
 
     yield
 
 
 app = FastAPI(lifespan=lifespan)
+
+app.include_router(team_router, tags=["team"], prefix="/teams")
+app.include_router(player_router, tags=["player"], prefix="/players")
