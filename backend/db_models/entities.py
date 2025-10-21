@@ -1,6 +1,6 @@
 from pony.orm import Required, Optional, PrimaryKey, Set
 from datetime import datetime, date
-from pony_db_connection import init_db, db
+from db_connection import init_db, db
 
 db = init_db()
 
@@ -15,7 +15,7 @@ class Team(db.db.Entity):
     conference = Required("Conference")
     division = Required("Division")
     logo = Optional(str)
-    players = Set("Player")
+    player_seasons = Set("PlayerTeamSeason")
 
 
 class Conference(db.db.Entity):
@@ -43,7 +43,7 @@ class Player(db.db.Entity):
     birth_city = Optional(str)
     birth_country = Optional(str)
     birth_date = Optional(str)
-    birth_province_state = Optional(str)
+    birth_province_state = Optional(str, nullable=True)
     first_name = Optional(str)
     last_name = Optional(str)
     headshot = Optional(str)
@@ -54,9 +54,20 @@ class Player(db.db.Entity):
     sweater_number = Optional(int)
     weight_in_kilograms = Optional(int)
     weight_in_pounds = Optional(int)
-    current_team = Optional("Team")
     last_updated = Required(datetime)
     stats = Set("Stat")
+    team_seasons = Set("PlayerTeamSeason")
+
+
+class PlayerTeamSeason(db.db.Entity):
+    _table_ = "player_team_seasons"
+
+    player = Required("Player")
+    team = Required("Team")
+    season = Required(str)
+    sweater_number = Optional(int)
+    games_played = Optional(int)
+    PrimaryKey(player, team, season)
 
 
 class Stat(db.db.Entity):

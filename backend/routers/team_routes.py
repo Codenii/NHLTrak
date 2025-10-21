@@ -3,8 +3,8 @@ from icecream import ic
 from fastapi import APIRouter
 from fastapi.encoders import jsonable_encoder
 
-from pony_db_connection import init_db, db
-from pony_db_models.entities import Team, Division, Conference
+from db_connection import init_db, db
+from db_models.entities import Team, Division, Conference
 
 db = init_db(create_tables=True)
 

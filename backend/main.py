@@ -1,5 +1,6 @@
-from db_connection import init_db, db, Base
-from dotenv import dotenv_values
+from db_connection import init_db
+from db_models.entities import Team, Conference, Division, Player, Stat
+
 from contextlib import asynccontextmanager
 
 from icecream import ic
@@ -8,16 +9,13 @@ from fastapi import FastAPI
 
 from nhlpy import NHLClient
 
-from routers.teams_routes import teams_router
-from routers.players_routes import players_router
-from routers.stats_routes import stats_router
-
-from config import DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME
+from routers.team_routes import team_router
+from routers.player_routes import player_router
 
 nhl_client = NHLClient()
 
 
-db = init_db(DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME)
+db = init_db(create_tables=True)
 
 
 @asynccontextmanager
@@ -26,76 +24,50 @@ async def lifespan(app: FastAPI):
     all_divisions = []
     all_conferences = []
 
-    db_teams = db.execute_query(f"SELECT * FROM teams;")
-    db_conf = db.execute_query(f"SELECT * FROM conferences;")
-    db_div = db.execute_query(f"SELECT * FROM divisions;")
-    if (
-        len(db_teams.fetchall()) < 32
-        or len(db_conf.fetchall()) < 2
-        or len(db_div.fetchall()) < 4
-    ):
-        print(
-            f"Teams/Conferences/Divisions missing from database. Adding missing data..."
-        )
+    db_teams = db.get_all(Team)
+    db_conf = db.get_all(Conference)
+    db_div = db.get_all(Division)
+
+    if len(db_teams) < 32:
         teams = nhl_client.teams.teams()
 
         for team in teams:
-
-            all_teams.append(team)
-
             if team["conference"] not in all_conferences:
                 all_conferences.append(team["conference"])
 
             if team["division"] not in all_divisions:
                 all_divisions.append(team["division"])
 
-        for division in all_divisions:
-            results = db.execute_query(
-                f"SELECT * FROM divisions WHERE name = '{division['name']}'"
-            )
-            results = results.fetchall()
+        if len(db_conf) < 2:
+            for conference in all_conferences:
+                db.insert_one(
+                    Conference, abbr=conference["abbr"], name=conference["name"]
+                )
 
-            if not results:
-                db.execute_query(
-                    f"INSERT INTO divisions (abbr, name) VALUES ('{division['abbr']}', '{division['name']}');"
-                )
-        for conference in all_conferences:
-            results = db.execute_query(
-                f"SELECT * FROM conferences WHERE name = '{conference['name']}'"
-            )
-            results = results.fetchall()
+        if len(db_div) < 4:
+            for division in all_divisions:
+                db.insert_one(Division, abbr=division["abbr"], name=division["name"])
 
-            if not results:
-                db.execute_query(
-                    f"INSERT INTO conferences (abbr, name) VALUES ('{conference['abbr']}', '{conference['name']}');"
-                )
-        for team in all_teams:
-            results = db.execute_query(
-                f"SELECT * FROM teams WHERE name = '{team['name']}';"
-            )
-            results = results.fetchall()
+        for team in teams:
+            conf = db.get_one(Conference, name=team["conference"]["name"])
+            div = db.get_one(Division, name=team["division"]["name"])
+            team_data = {
+                "id": team["franchise_id"],
+                "abbr": team["abbr"],
+                "common_name": team["common_name"],
+                "name": team["name"],
+                "conference": conf.id,
+                "division": div.id,
+                "logo": team["logo"],
+            }
+            all_teams.append(team_data)
 
-            if not results:
-                division_id = db.execute_query(
-                    f"SELECT id FROM divisions WHERE name = '{team['division']['name']}'"
-                )
-                division_id = division_id.fetchall()[0]
-                division_id = division_id[0]
-                conference_id = db.execute_query(
-                    f"SELECT id FROM conferences WHERE name = '{team['conference']['name']}'"
-                )
-                conference_id = conference_id.fetchall()[0]
-                conference_id = conference_id[0]
-                query_string = f"INSERT INTO teams (id, abbr, common_name, name, conference, division, logo) VALUES ('{team['franchise_id']}', '{team['abbr']}', '{team['common_name']}', '{team['name']}', '{conference_id}', '{division_id}', '{team['logo']}');"
-                db.execute_query(query_string)
-    else:
-        print(f"All startup data exists. Application startup complete.")
+        teams_inserted = db.insert_many(Team, all_teams)
 
     yield
 
 
 app = FastAPI(lifespan=lifespan)
 
-app.include_router(teams_router, tags=["teams"], prefix="/teams")
-app.include_router(players_router, tags=["players"], prefix="/players")
-app.include_router(stats_router, tags=["stats"], prefix="/stats")
+app.include_router(team_router, tags=["team"], prefix="/teams")
+app.include_router(player_router, tags=["player"], prefix="/players")

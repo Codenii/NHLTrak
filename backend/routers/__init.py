@@ -1,2 +1,0 @@
-import players_routes
-import teams_routes
