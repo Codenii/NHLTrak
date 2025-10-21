@@ -26,7 +26,7 @@ async def get_all_team():
     return {"teams": teams_list, "count": len(teams_list)}
 
 
-@team_router.get("/id/{id}")
+@team_router.get("/id/")
 async def get_team_by_id(id: int):
     """
     Gets a teams basic information by its ID.
@@ -50,7 +50,7 @@ async def get_team_by_id(id: int):
     return team
 
 
-@team_router.get("/name/{name}")
+@team_router.get("/name/")
 async def get_team_by_name(name: str):
     """
     Gets teams basic information by its name, common name, or abbreviation.
@@ -71,7 +71,7 @@ async def get_team_by_name(name: str):
     return team
 
 
-@team_router.get("/division/id/{id}")
+@team_router.get("/division/id/")
 async def get_teams_by_division_id(div_id: int):
     """
     Gets basic team information for all teams in the given division.
@@ -93,7 +93,7 @@ async def get_teams_by_division_id(div_id: int):
     return {"teams": teams, "count": len(teams)}
 
 
-@team_router.get("division/name/{name}")
+@team_router.get("division/name/")
 async def get_teams_by_division_name(div_name: str):
     """
     Gets basic team information for all teams in the given division.
@@ -117,7 +117,7 @@ async def get_teams_by_division_name(div_name: str):
     return {"teams": teams, "count": len(teams)}
 
 
-@team_router.get("/conference/id/{id}")
+@team_router.get("/conference/id/")
 async def get_teams_by_conference_id(conf_id: int):
     """
     Gets basic team information for all teams in the given conference.
@@ -139,7 +139,7 @@ async def get_teams_by_conference_id(conf_id: int):
     return {"teams": teams, "count": len(teams)}
 
 
-@team_router.get("/conference/name/{name}")
+@team_router.get("/conference/name/")
 async def get_teams_by_conference_name(conf_name: str):
     """
     Gets basic team information for all teams in the given conference.

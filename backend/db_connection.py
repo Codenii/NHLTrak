@@ -777,6 +777,7 @@ class DatabaseConnection:
                     if field_value == search_value:
                         results.append(instance)
                         break  # Don't add the same instance multiple times
+        return results
 
     @db_session
     def search_by_any_field_with_relations(

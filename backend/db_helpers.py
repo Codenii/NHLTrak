@@ -48,6 +48,45 @@ class DatabaseHelper:
         return pts.to_dict()
 
     @db_session
+    def update_player_team_season(self, player_id, team_id, season, update_data):
+        """
+        Updates an existing player-team-season record.
+
+        Parameters:
+            player_id: Player ID.
+            team_id: Team ID.
+            season: The season string (ex: "20252026").
+            update_data: Dictionary containing fields to update.
+                sweater_number: int (optional)
+                games_played: int (optional)
+                start_date: date (optional)
+                end_date: date (optional)
+
+        Returns:
+            A dictionary representation of the updated PlayerTeamSeason record, or None if
+            the record doesn't exist.
+        """
+        pts = PlayerTeamSeason.get(
+            lambda p: p.player.id == player_id
+            and p.team.id == team_id
+            and p.season == season
+        )
+
+        if not pts:
+            return None
+
+        if "sweater_number" in update_data:
+            pts.sweater_number = update_data["sweater_number"]
+        if "games_played" in update_data:
+            pts.games_played = update_data["games_played"]
+        if "start_date" in update_data:
+            pts.start_date = update_data["start_date"]
+        if "end_date" in update_data:
+            pts.end_date = update_data["end_date"]
+
+        return pts.to_dict()
+
+    @db_session
     def get_team_roster(self, team_id: int, season: str):
         """
         Gets a teams roster for a given season.
@@ -72,6 +111,15 @@ class DatabaseHelper:
                             "first_name": player.first_name,
                             "last_name": player.last_name,
                             "position": player.position,
+                            "birth_city": player.birth_city,
+                            "birth_country": player.birth_country,
+                            "birth_province_state": player.birth_province_state,
+                            "shoots_catches": player.shoots_catches,
+                            "height_in_centimeters": player.height_in_centimeters,
+                            "height_in_inches": player.height_in_inches,
+                            "weight_in_kilograms": player.weight_in_kilograms,
+                            "weight_in_pounds": player.weight_in_pounds,
+                            "headshot": player.headshot,
                             "sweater_number": pts.sweater_number,
                             "games_played": pts.games_played,
                             "last_updated": player.last_updated,
