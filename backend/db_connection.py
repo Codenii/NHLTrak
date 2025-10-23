@@ -5,12 +5,23 @@ from dotenv import dotenv_values
 
 from icecream import ic
 
-config = dotenv_values(".env")
-DB_USER = config["DB_USER"]
-DB_PASSWORD = config["DB_PASSWORD"]
-DB_HOST = config["DB_HOST"]
-DB_PORT = config["DB_PORT"]
-DB_NAME = config["DB_NAME"]
+try:
+    DB_USER = os.environ.get("DB_USER")
+    DB_PASSWORD = os.environ.get("DB_PASSWORD")
+    DB_HOST = os.environ.get("DB_HOST", "localhost")
+    DB_PORT = os.environ.get("DB_PORT", "5432")
+    DB_NAME = os.environ.get("DB_NAME")
+
+    if None in (DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME):
+        config = dotenv_values(".env")
+        DB_USER = config.get("DB_USER")
+        DB_PASSWORD = config.get("DB_PASSWORD")
+        DB_HOST = config.get("DB_HOST")
+        DB_PORT = config.get("DB_PORT")
+        DB_NAME = config.get("DB_NAME")
+except Exception as e:
+    ic(f"Error loading Database environment variables: {e}")
+    raise e
 
 
 class DatabaseConnection:
@@ -30,11 +41,11 @@ class DatabaseConnection:
             database: Database name.
                 (default: fron .env file or from env or 'postgres')
         """
-        self.user = user or DB_USER or os.environ.get("DB_USER", "")
-        self.password = password or DB_PASSWORD or os.environ.get("DB_PASSWORD", "")
-        self.host = host or DB_HOST or os.environ.get("DB_HOST" "localhost")
-        self.port = port or DB_PORT or os.environ.get("DB_PORT" "5432")
-        self.database = database or DB_NAME or os.environ.get("DB_NAME" "postgres")
+        self.user = user or DB_USER
+        self.password = password or DB_PASSWORD
+        self.host = host or DB_HOST
+        self.port = port or DB_PORT
+        self.database = database or DB_NAME
 
         self.db = Database()
         self._connected = False
