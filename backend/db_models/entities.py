@@ -15,6 +15,7 @@ class Team(db.db.Entity):
     conference = Required("Conference")
     division = Required("Division")
     logo = Optional(str)
+    last_updated = Required(datetime, default=datetime.now)
     player_seasons = Set("PlayerTeamSeason")
 
 
@@ -24,6 +25,7 @@ class Conference(db.db.Entity):
     id = PrimaryKey(int, auto=True)
     abbr = Optional(str)
     name = Optional(str)
+    last_updated = Required(datetime, default=datetime.now)
     teams = Set("Team")
 
 
@@ -33,6 +35,7 @@ class Division(db.db.Entity):
     id = PrimaryKey(int, auto=True)
     abbr = Optional(str)
     name = Optional(str)
+    last_updated = Required(datetime, default=datetime.now)
     teams = Set("Team")
 
 
@@ -54,7 +57,7 @@ class Player(db.db.Entity):
     sweater_number = Optional(int)
     weight_in_kilograms = Optional(int)
     weight_in_pounds = Optional(int)
-    last_updated = Required(datetime)
+    last_updated = Required(datetime, default=datetime.now)
     stats = Set("Stat")
     team_seasons = Set("PlayerTeamSeason")
 
@@ -97,6 +100,7 @@ class Stat(db.db.Entity):
     player = Optional("Player")
     game_id = Optional(int)
     season = Required(str)
+    last_updated = Required(datetime, default=datetime.now)
 
 
 db.generate_mappings(create_tables=True)

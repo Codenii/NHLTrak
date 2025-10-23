@@ -1,3 +1,3 @@
 from fastapi import APIRouter
 
-team_router = APIRouter()
+stat_router = APIRouter()

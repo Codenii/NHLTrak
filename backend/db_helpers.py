@@ -1,4 +1,8 @@
+from icecream import ic
+
 from pony.orm import db_session
+
+from datetime import datetime, timedelta
 
 from db_models.entities import Player, Team, PlayerTeamSeason
 
@@ -16,6 +20,27 @@ class DatabaseHelper:
             db_connection: Instance of DatabaseConnection from the db_connection module.
         """
         self.db = db_connection
+
+    def _should_update_database(self, objects: list, t_delta: timedelta):
+        """
+        Checks to see if objects in the database are stale.
+
+        Parameters:
+            objects: The list of database objects to check.
+            t_delta: The timedelta for the staleness calculation.
+                (How old data can be, before its deemed stale and needs to be updated)
+
+        Returns:
+            True if the data is missing, or is determined to be stale. False if the data does not
+            need to be updated.
+        """
+
+        if not objects:
+            return True
+
+        update_threshold = datetime.now() - t_delta
+
+        return any(obj.last_updated <= update_threshold for obj in objects)
 
     @db_session
     def insert_player_team_season(self, player_id, team_id, season_data):
@@ -66,11 +91,10 @@ class DatabaseHelper:
             A dictionary representation of the updated PlayerTeamSeason record, or None if
             the record doesn't exist.
         """
-        pts = PlayerTeamSeason.get(
-            lambda p: p.player.id == player_id
-            and p.team.id == team_id
-            and p.season == season
-        )
+        player = Player[player_id]
+        team = Team[team_id]
+
+        pts = PlayerTeamSeason.get(player=player, team=team, season=season)
 
         if not pts:
             return None
@@ -127,6 +151,59 @@ class DatabaseHelper:
                     )
             return roster
         return []
+
+    @db_session
+    def get_player_with_teams(self, player_id):
+        """
+        Gets a players information as well as team history.
+
+        Parameters:
+            player_id: The ID of the player to retrieve.
+
+        Returns:
+            A dictionary containing player information and their team history,
+            or None if the player is not found/doesn't exist.
+        """
+        player = Player.get(id=player_id)
+
+        if not player:
+            return None
+
+        team_history = []
+        for pts in player.team_seasons:
+            team_history.append(
+                {
+                    "team_id": pts.team.id,
+                    "team_name": pts.team.name if hasattr(pts.team, "name") else None,
+                    "team_common_name": (
+                        pts.team.common_name
+                        if hasattr(pts.team, "common_name")
+                        else None
+                    ),
+                    "team_abbr": pts.team.abbr if hasattr(pts.team, "abbr") else None,
+                    "season": pts.season,
+                    "sweater_number": pts.sweater_number,
+                    "games_played": pts.games_played,
+                }
+            )
+
+        return {
+            "id": player.id,
+            "first_name": player.first_name,
+            "last_name": player.last_name,
+            "position": player.position,
+            "birth_city": player.birth_city,
+            "birth_country": player.birth_country,
+            "birth_province_state": player.birth_province_state,
+            "shoots_catches": player.shoots_catches,
+            "height_in_centimeters": player.height_in_centimeters,
+            "height_in_inches": player.height_in_inches,
+            "weight_in_kilograms": player.weight_in_kilograms,
+            "weight_in_pounds": player.weight_in_pounds,
+            "headshot": player.headshot,
+            "last_updated": player.last_updated,
+            "team_history": team_history,
+        }
 
 
 def create_db_helper(db_connection):
