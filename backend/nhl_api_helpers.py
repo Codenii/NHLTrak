@@ -1,22 +1,18 @@
 from icecream import ic
 
+import logging
+
 from nhlpy import NHLClient
 
-from pony.orm import TransactionIntegrityError
-
-from db_connection import init_db
-from db_helpers import create_db_helper
 from db_models.entities import (
-    Team,
-    Player,
     Conference,
     Division,
-    PlayerTeamSeason,
-    Stat,
 )
 
 
 nhl_client = NHLClient()
+
+logger = logging.getLogger(__name__)
 
 
 class NhlApiHelper:
@@ -47,12 +43,20 @@ class NhlApiHelper:
 
         Returns:
             A list of team data from the NHL API.
+
+        Raises:
+            Exception: If the API call fails.
         """
         if self._teams_cache is None:
-            self._teams_cache = self.nhl_client.teams.teams()
+            try:
+                self._teams_cache = self.nhl_client.teams.teams()
+                logger.info("Successfully fetched team data from NHL API")
+            except Exception as e:
+                logger.error(f"Failed to fetch team data from NHL API: {e}")
+                raise Exception(f"NHL API error: Unable to fetch team data. {str(e)}")
         return self._teams_cache
 
-    def _clear_cache(self):
+    def clear_cache(self):
         """
         Clears the cached teams data, forcing a fresh API call on next request.
         """
@@ -64,23 +68,36 @@ class NhlApiHelper:
 
         Returns:
             A list of all NHL teams.
+
+        Raises:
+            Exception: If database lookups fail or data is missing
         """
         all_teams = []
-        teams = self._fetch_and_cache_team_data()
+        try:
+            teams = self._fetch_and_cache_team_data()
 
-        for team in teams:
-            conf = self.db.get_one(Conference, name=team["conference"]["name"])
-            div = self.db.get_one(Division, name=team["division"]["name"])
-            team_data = {
-                "id": team["franchise_id"],
-                "abbr": team["abbr"],
-                "common_name": team["common_name"],
-                "name": team["name"],
-                "conference": conf.id,
-                "division": div.id,
-                "logo": team["logo"],
-            }
-            all_teams.append(team_data)
+            for team in teams:
+                try:
+                    conf = self.db.get_one(Conference, name=team["conference"]["name"])
+                    div = self.db.get_one(Division, name=team["division"]["name"])
+                    team_data = {
+                        "id": team["franchise_id"],
+                        "abbr": team["abbr"],
+                        "common_name": team["common_name"],
+                        "name": team["name"],
+                        "conference": conf.id,
+                        "division": div.id,
+                        "logo": team["logo"],
+                    }
+                    all_teams.append(team_data)
+                except KeyError as e:
+                    logger.error(
+                        f"Error processing team {team.get('name', 'Unknown')}: {e}"
+                    )
+                    continue
+        except Exception as e:
+            logger.error(f"Failed to get all teams: {e}")
+            raise Exception(f"Error retrieving data from database. {str(e)}")
 
         return all_teams
 
@@ -91,14 +108,15 @@ class NhlApiHelper:
         Returns:
             A list of all NHL conferences.
         """
-        all_conferences = []
+        all_conferences = {}
         teams = self._fetch_and_cache_team_data()
 
         for team in teams:
-            if team["conference"] not in all_conferences:
-                all_conferences.append(team["conference"])
+            conf = team["conference"]
+            if conf["name"] not in all_conferences:
+                all_conferences[conf["name"]] = conf
 
-        return all_conferences
+        return list(all_conferences.values())
 
     def get_all_divisions(self):
         """
@@ -107,14 +125,15 @@ class NhlApiHelper:
         Returns:
             A list of all NHL divisions.
         """
-        all_divisions = []
+        all_divisions = {}
         teams = self._fetch_and_cache_team_data()
 
         for team in teams:
-            if team["division"] not in all_divisions:
-                all_divisions.append(team["division"])
+            div = team["division"]
+            if div["name"] not in all_divisions:
+                all_divisions[div["name"]] = div
 
-        return all_divisions
+        return list(all_divisions.values())
 
 
 def create_nhl_api_helper(nhl_client=None, db_connection=None, db_helper=None):
