@@ -4,7 +4,7 @@ from pony.orm import db_session
 
 from datetime import datetime, timedelta
 
-from db_models.entities import Player, Team, PlayerTeamSeason
+from db_models.entities import Player, Team, PlayerTeamSeason, Conference, Division
 
 
 class DatabaseHelper:
@@ -204,6 +204,62 @@ class DatabaseHelper:
             "last_updated": player.last_updated,
             "team_history": team_history,
         }
+
+    @db_session
+    def upsert_conference(self, conf_data):
+        """
+        Inserts or updates a conference by its name.
+
+        Parameters:
+            conf_data: A dictionary with conference data.
+
+        Returns:
+            The created or updated Conference entity.
+        """
+        existing = Conference.get(name=conf_data["name"])
+
+        if existing:
+            if "abbr" in conf_data:
+                existing.abbr = conf_data["abbr"]
+            existing.last_updated = datetime.now()
+            return existing
+        else:
+            return Conference(**conf_data)
+
+    @db_session
+    def upsert_division(self, div_data):
+        """
+        Inserts or updates a division by its name.
+
+        Parameters:
+            div_data: A dictionary with division data.
+
+        Returns:
+            The created or updated Division entity.
+        """
+        existing = Division.get(name=div_data["name"])
+
+        if existing:
+            if "abbr" in div_data:
+                existing.abbr = div_data["abbr"]
+            existing.last_updated = datetime.now()
+            return existing
+        else:
+            return Division(**div_data)
+
+    @db_session
+    def upsert_many_conferences(self, conferences):
+        """
+        Upsert multiple conferences at once.
+        """
+        return [self.upsert_conference(conf) for conf in conferences]
+
+    @db_session
+    def upsert_many_divisions(self, divisions):
+        """
+        Upsert multiple divisions at once.
+        """
+        return [self.upsert_division(div) for div in divisions]
 
 
 def create_db_helper(db_connection):

@@ -101,6 +101,18 @@ class NhlApiHelper:
 
         return all_teams
 
+    def get_team_by_id(self, team_id):
+        """
+        Gets a team from the NHL API based on its ID.
+
+        Parameters:
+            team_id: The ID of the team to retrieve.
+
+        Returns:
+            A dictonary of the teams data.
+        """
+        team = nhl_client.teams.teams
+
     def get_all_conferences(self):
         """
         Gets a list of all conferences from the NHL API.

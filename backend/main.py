@@ -2,6 +2,8 @@ from icecream import ic
 
 import logging
 
+from pony.orm import TransactionIntegrityError
+
 from db_connection import init_db
 from db_helpers import create_db_helper
 from nhl_api_helpers import create_nhl_api_helper
@@ -44,16 +46,18 @@ async def lifespan(app: FastAPI):
 
         if confs_need_update or teams_need_update:
             all_conferences = nhl_api_helper.get_all_conferences()
-            db.insert_many(Conference, records=all_conferences)
+            db_helper.upsert_conference(all_conferences)
 
         if divs_need_update or teams_need_update:
             all_divisions = nhl_api_helper.get_all_divisions()
-            db.insert_many(Division, records=all_divisions)
+            db_helper.upsert_many_divisions(all_divisions)
 
         if teams_need_update:
             all_teams = nhl_api_helper.get_all_teams()
-
-            db.insert_many(Team, all_teams)
+            try:
+                db.insert_many(Team, all_teams)
+            except TransactionIntegrityError as e:
+                db.update_many(Team, all_teams)
     except Exception as e:
         logger.critical(f"Critical error during application startup: {e}")
 
