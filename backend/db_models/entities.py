@@ -103,4 +103,32 @@ class Stat(db.db.Entity):
     last_updated = Required(datetime, default=datetime.now)
 
 
+class SeasonStats(db.db.Entity):
+    _table_ = "season_stats"
+
+    id = PrimaryKey(str)
+    player_team_season = Required("PlayerTeamSeason")
+    assists = Optional(int)
+    avg_toi = Optional(str)
+    face_off_winning_pctg = Optional(float)
+    game_type_id = Optional(int)
+    game_winning_goals = Optional(int)
+    games_played = Optional(int)
+    goals = Optional(int)
+    league_abbr = Optional(str)
+    ot_goals = Optional(int)
+    pim = Optional(int)
+    plus_minus = Optional(int)
+    points = Optional(int)
+    power_play_goals = Optional(int)
+    power_play_points = Optional(int)
+    season = Required(str)
+    sequence = Optional(int)
+    shooting_pctg = Optional(float)
+    short_handed_goals = Optional(int)
+    short_handed_points = Optional(int)
+    shots = Optional(int)
+    last_updated = Optional(datetime, default=datetime.now)
+
+
 db.generate_mappings(create_tables=True)

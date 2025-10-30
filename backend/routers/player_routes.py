@@ -14,7 +14,5 @@ nhl_api_helper = create_nhl_api_helper(db_connection=db, db_helper=db_helper)
 
 
 @player_router.get("/test")
-async def test():
-    ic(nhl_api_helper.get_all_teams())
-    ic(nhl_api_helper.get_all_conferences())
-    ic(nhl_api_helper.get_all_divisions())
+async def test(team_id):
+    nhl_api_helper.get_all_players_by_team_id(team_id)

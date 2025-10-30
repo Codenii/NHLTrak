@@ -1,18 +1,32 @@
 from icecream import ic
 
+from datetime import datetime
+
 import logging
 
 from nhlpy import NHLClient
 
-from db_models.entities import (
-    Conference,
-    Division,
-)
+from db_models.entities import Conference, Division, Team
 
-
+"""
+! Important NHL API hints/tips:
+    * When getting stats:
+        gameTypeId:
+            1 - Preseason
+            2 - Regular Season
+            3 - Playoffs
+            4 - All-Star
+"""
 nhl_client = NHLClient()
 
 logger = logging.getLogger(__name__)
+
+current_season = datetime.now().year
+
+if datetime.now().month >= 1 and datetime.now().month <= 4:
+    current_season = str(current_season - 1) + str(current_season)
+else:
+    current_season = str(current_season) + str(current_season + 1)
 
 
 class NhlApiHelper:
@@ -134,6 +148,39 @@ class NhlApiHelper:
                 all_divisions[div["name"]] = div
 
         return list(all_divisions.values())
+
+    def get_all_players_by_team_id(self, team_id, season=current_season):
+        """
+        Gets all player information for a teams roster during a given season.
+        NOTE: This function gets *ALL* data for each player on the given
+        teams current roster (this means historical stats data, team history,
+        etc.)
+
+        Parameters:
+            team_id: The team ID of the team to retrieve roster data for.
+            season: The season string for the season to get roster data for.
+                (Example: "20252026")
+
+        Returns:
+            A list of all players on the teams roster for the requested season.
+        """
+        team = self.db.get_by_id(Team, team_id).abbr
+        roster = nhl_client.teams.team_roster(team, season)
+
+        for position in roster:
+            for player in roster[position]:
+                if player["firstName"]["default"] == "Claude":
+                    stats = nhl_client.stats.player_career_stats(player["id"])
+                    for season in stats["seasonTotals"]:
+                        data = {
+                            "season": season["season"],
+                            "league": season["leagueAbbrev"],
+                            "team": season["teamName"]["default"],
+                            "game_type": season["gameTypeId"],
+                        }
+                        ic(season)
+                    # ic(stats["seasonTotals"])
+                    return
 
 
 def create_nhl_api_helper(nhl_client=None, db_connection=None, db_helper=None):
