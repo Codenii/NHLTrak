@@ -70,6 +70,7 @@ class PlayerTeamSeason(db.db.Entity):
     season = Required(str)
     sweater_number = Optional(int)
     games_played = Optional(int)
+    season_stats = Optional("SeasonStats")
     PrimaryKey(player, team, season)
 
 

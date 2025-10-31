@@ -46,7 +46,7 @@ async def lifespan(app: FastAPI):
 
         if confs_need_update or teams_need_update:
             all_conferences = nhl_api_helper.get_all_conferences()
-            db_helper.upsert_conference(all_conferences)
+            db_helper.upsert_many_conferences(all_conferences)
 
         if divs_need_update or teams_need_update:
             all_divisions = nhl_api_helper.get_all_divisions()

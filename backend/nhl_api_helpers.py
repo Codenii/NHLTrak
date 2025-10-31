@@ -16,6 +16,15 @@ from db_models.entities import Conference, Division, Team
             2 - Regular Season
             3 - Playoffs
             4 - All-Star
+        stats.player_career_stats returns:
+            playerId, isActive, currentTeamId, currentTeamAbbrev, fullTeamName,
+            teamCommonName, teamPlaceNameWithPreposition, firstName, lastName,
+            badges, teamLogo, sweaterNumber, position, headshot, heroImage,
+            heightInInches, heightInCentimeters, weightInPounds, weightInKilograms,
+            birthDate, birthCity, birthStateProvince, birthCountry, shootsCatches,
+            draftDetails, playerSlug, inTop100AllTime, inHHOF, featuredStats,
+            careerTotals, shopLink, twitterLink, watchLink, last5Games, seasonTotals,
+            currentTeamRoster
 """
 nhl_client = NHLClient()
 
@@ -164,23 +173,27 @@ class NhlApiHelper:
         Returns:
             A list of all players on the teams roster for the requested season.
         """
-        team = self.db.get_by_id(Team, team_id).abbr
-        roster = nhl_client.teams.team_roster(team, season)
+        pass
 
-        for position in roster:
-            for player in roster[position]:
-                if player["firstName"]["default"] == "Claude":
-                    stats = nhl_client.stats.player_career_stats(player["id"])
-                    for season in stats["seasonTotals"]:
-                        data = {
-                            "season": season["season"],
-                            "league": season["leagueAbbrev"],
-                            "team": season["teamName"]["default"],
-                            "game_type": season["gameTypeId"],
-                        }
-                        ic(season)
-                    # ic(stats["seasonTotals"])
-                    return
+    def get_player_by_id(self, player_id):
+        """
+        Gets a player and all information/career statistics by thier ID.
+
+        Parameters:
+            player_id: The players ID.
+
+        Returns:
+            A dictionary of the players information.
+        """
+        player = nhl_client.stats.player_career_stats(player_id)
+        season_totals = []
+        career_totals = []
+        for i in player["seasonTotals"]:
+            season_totals.append(i)
+        for i in player["careerTotals"]:
+            career_totals.append(i)
+
+        ic(player["careerTotals"]["regularSeason"])
 
 
 def create_nhl_api_helper(nhl_client=None, db_connection=None, db_helper=None):
